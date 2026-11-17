@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#e2601d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>红中麻将 AI 出牌助手</title>
+<style>
+  :root { --bg:#f3eee6; --card:#fff; --green:#2bb35a; --blue:#2f7cf6; --red:#d7262b; --ink:#222; --muted:#888; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:linear-gradient(180deg,#e2601d,#f08a3c); color:#fff; padding:14px 16px 12px; }
+  header h1 { margin:0; font-size:20px; letter-spacing:2px; }
+  header p { margin:4px 0 0; font-size:12px; opacity:.85; }
+  main { max-width:560px; margin:0 auto; padding:10px 10px 120px; }
+  .panel { background:var(--card); border-radius:12px; padding:10px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .panel h2 { font-size:13px; color:var(--muted); font-weight:normal; margin:0 0 8px; text-align:center; }
+  .grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .tile { position:relative; aspect-ratio:3/4; border-radius:6px; background:linear-gradient(180deg,#fff,#f4f4f0); border:1px solid #d9d9d2;
+          border-top:3px solid #3aa55d; box-shadow:0 2px 0 #cfcfc6; display:flex; flex-direction:column; align-items:center; justify-content:center;
+          font-weight:bold; user-select:none; cursor:pointer; transition:transform .08s; }
+  .tile:active { transform:scale(.94); }
+  .tile .n { font-size:clamp(14px,4.6vw,22px); line-height:1.05; }
+  .tile .s { font-size:clamp(11px,3.4vw,16px); line-height:1.1; }
+  .tile.m .n { color:#111; } .tile.m .s { color:var(--red); }
+  .tile.s .n, .tile.s .s { color:#1d8a45; }
+  .tile.p .n, .tile.p .s { color:#1b4fa0; }
+  .tile.hz .n { color:var(--red); font-size:clamp(22px,7vw,32px); }
+  .tile.empty { background:#f7f7f4; border:1px dashed #d4d4cc; box-shadow:none; cursor:default; }
+  .tile.best { outline:3px solid var(--red); outline-offset:1px; }
+  .tile.dim { opacity:.35; }
+  .tile .badge { position:absolute; top:-8px; right:-6px; background:var(--red); color:#fff; font-size:10px; border-radius:8px; padding:1px 5px; font-weight:normal; }
+  .tile .cnt { position:absolute; bottom:1px; right:3px; font-size:9px; color:var(--muted); font-weight:normal; }
+  .tile.used { opacity:.3; }
+  .row-actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .btn { border:none; border-radius:20px; padding:9px 14px; font-size:14px; background:#eee; color:#333; cursor:pointer; }
+  .btn.small { padding:6px 10px; font-size:12px; }
+  .bar { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid #eee; padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+         display:flex; align-items:center; gap:14px; justify-content:center; }
+  .bar .tool { display:flex; flex-direction:column; align-items:center; font-size:11px; color:#555; background:none; border:none; cursor:pointer; }
+  .bar .tool span { font-size:20px; line-height:1.1; }
+  .seg { display:flex; border-radius:22px; overflow:hidden; margin-left:auto; }
+  .seg button { border:none; color:#fff; padding:11px 22px; font-size:15px; cursor:pointer; }
+  .seg .a { background:var(--green); } .seg .b { background:var(--blue); }
+  .seg button:disabled { opacity:.6; }
+  .result .head { font-size:17px; font-weight:bold; margin:2px 0 8px; }
+  .result .head b { color:var(--red); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { padding:6px 4px; border-bottom:1px solid #f0f0f0; text-align:left; vertical-align:top; }
+  th { color:var(--muted); font-weight:normal; }
+  tr.top td { background:#fff6f0; }
+  .eff { color:#555; font-size:12px; line-height:1.5; }
+  .ai { white-space:pre-wrap; line-height:1.7; font-size:14px; }
+  .muted { color:var(--muted); font-size:12px; }
+  .tip { font-size:12px; color:#a0522d; background:#fff4e5; border-radius:8px; padding:6px 8px; margin-top:8px; }
+  .sheet { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none; align-items:flex-end; z-index:10; }
+  .sheet.show { display:flex; }
+  .sheet .inner { background:#fff; width:100%; max-width:560px; margin:0 auto; border-radius:14px 14px 0 0; padding:12px 10px calc(14px + env(safe-area-inset-bottom)); }
+  .sheet h3 { text-align:center; margin:0 0 10px; font-size:15px; }
+  .tabs { display:flex; gap:6px; justify-content:center; margin-bottom:8px; }
+  .tabs button { border:1px solid #ddd; background:#fff; border-radius:14px; padding:4px 12px; font-size:12px; }
+  .tabs button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid #ccc; border-top-color:var(--blue); border-radius:50%; animation:sp 0.8s linear infinite; vertical-align:-2px; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  #preview { max-width:100%; border-radius:8px; margin-top:8px; display:none; }
+  .mini { display:inline-flex; width:22px; height:29px; margin:1px; vertical-align:middle; border-top-width:2px; box-shadow:0 1px 0 #cfcfc6; cursor:default; }
+  .form label { display:block; font-size:13px; color:#555; margin:8px 0; }
+  .form input, .form select { display:block; width:100%; margin-top:4px; padding:9px 10px; border:1px solid #ddd; border-radius:8px; font-size:15px; background:#fff; }
+  .btn.primary { background:var(--blue); color:#fff; }
+  header { display:flex; align-items:flex-start; padding-top:calc(14px + env(safe-area-inset-top)); }
+  header .gear { margin-left:auto; background:rgba(255,255,255,.2); border:none; color:#fff; font-size:20px; border-radius:50%; width:36px; height:36px; }
+  .mini .n { font-size:11px; } .mini .s { font-size:9px; } .mini.hz .n { font-size:14px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>红中麻将 · AI 出牌助手</h1>
+    <p>拍照识别 · 算向听与进张 · AI 讲解思路（仅供娱乐，禁止赌博）</p>
+  </div>
+  <button class="gear" id="gearBtn" aria-label="设置">⚙</button>
+</header>
+<main>
+  <div class="panel">
+    <h2>（仅供娱乐，禁止赌博）我的手牌（<span id="cnt">0</span>张）</h2>
+    <div class="grid" id="hand"></div>
+    <div class="row-actions">
+      <button class="btn small" id="sortBtn">整理排序</button>
+      <button class="btn small" id="randBtn">随机发牌</button>
+      <label class="btn small"><input id="aiToggle" type="checkbox" checked> AI 讲解</label>
+      <button class="btn small" id="seenBtn">已出的牌（<span id="seenCnt">0</span>）</button>
+    </div>
+    <img id="preview" alt="">
+    <div id="recogNote"></div>
+  </div>
+  <div class="panel result" id="result" style="display:none"></div>
+</main>
+
+<input type="file" id="file" accept="image/*" capture="environment" hidden>
+
+<div class="bar">
+  <button class="tool" id="clearBtn"><span>✕</span>清空</button>
+  <button class="tool" id="photoBtn"><span>📷</span>拍照识别</button>
+  <button class="tool" id="undoBtn"><span>↶</span>撤回</button>
+  <div class="seg">
+    <button class="a" id="analyzeBtn">分析</button>
+    <button class="b" id="pickBtn">选牌</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="inner">
+    <h3 id="sheetTitle">选择牌子</h3>
+    <div class="tabs" id="sheetTabs" style="display:none">
+      <button data-mode="hand" class="on">加入手牌</button><button data-mode="seen">记录已出牌</button>
+    </div>
+    <div class="grid" id="picker"></div>
+    <div class="row-actions" style="justify-content:center">
+      <button class="btn" id="sheetClose">完成</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="settings">
+  <div class="inner">
+    <h3>⚙️ AI 设置（只保存在本机）</h3>
+    <div class="form">
+      <label>API 密钥<input id="cfgKey" type="password" placeholder="sk-ant-... 或中转站给的密钥" autocomplete="off"></label>
+      <label>接口地址<input id="cfgBase" type="url" placeholder="https://api.anthropic.com"></label>
+      <div class="muted">国内网络一般连不上官方地址，请填你能用的中转地址（只填域名，不带 /v1/messages）。</div>
+      <label>认证方式
+        <select id="cfgAuth"><option value="x-api-key">x-api-key（官方密钥）</option><option value="bearer">Authorization: Bearer（多数中转站）</option></select>
+      </label>
+      <label>模型<input id="cfgModel" placeholder="claude-opus-5-5"></label>
+    </div>
+    <div class="row-actions" style="justify-content:center">
+      <button class="btn" id="cfgTest">测试连接</button>
+      <button class="btn primary" id="cfgSave">保存</button>
+    </div>
+    <div id="cfgMsg" class="muted" style="text-align:center;margin-top:6px"></div>
+  </div>
+</div>
+
+<script src="mahjong.js"></script>
+<script src="ai.js"></script>
+<script>
+const CN = ['一','二','三','四','五','六','七','八','九'];
+const SUIT_CN = { m:'万', s:'条', p:'筒' };
+const ALL = []; for (const s of 'msp') for (let n=1;n<=9;n++) ALL.push(n+s); ALL.push('hz');
+const order = c => ALL.indexOf(c);
+let hand = [], seen = [], history = [], pickMode = 'hand', lastResult = null;
+
+function tileEl(code, cls='') {
+  const d = document.createElement('div');
+  if (code === 'hz') { d.className = 'tile hz ' + cls; d.innerHTML = '<div class="n">中</div>'; }
+  else { const s = code[1]; d.className = `tile ${s} ${cls}`; d.innerHTML = `<div class="n">${CN[code[0]-1]}</div><div class="s">${SUIT_CN[s]}</div>`; }
+  d.dataset.code = code; return d;
+}
+const tileName = c => c === 'hz' ? '红中' : CN[c[0]-1] + SUIT_CN[c[1]];
+const mini = c => tileEl(c, 'mini').outerHTML;
+const count = (arr, c) => arr.filter(x => x === c).length;
+
+function save() { localStorage.setItem('hzmj', JSON.stringify({ hand, seen })); }
+function push() { history.push(JSON.stringify({ hand, seen })); if (history.length > 50) history.shift(); }
+
+function renderHand() {
+  const g = document.getElementById('hand'); g.innerHTML = '';
+  const best = lastResult?.analysis?.options?.[0]?.discard;
+  const slots = Math.max(14, Math.ceil(hand.length / 7) * 7);
+  hand.forEach((c, i) => {
+    const el = tileEl(c, best && c === best ? 'best' : '');
+    if (best && c === best && !g.querySelector('.best .badge')) el.insertAdjacentHTML('beforeend', '<span class="badge">打</span>');
+    el.onclick = () => { push(); hand.splice(i, 1); onChange(); };
+    g.appendChild(el);
+  });
+  for (let i = hand.length; i < slots; i++) { const e = document.createElement('div'); e.className = 'tile empty'; g.appendChild(e); }
+  document.getElementById('cnt').textContent = hand.length;
+  document.getElementById('seenCnt').textContent = seen.length;
+}
+function renderPicker() {
+  const g = document.getElementById('picker'); g.innerHTML = '';
+  // 按视频里的布局：每行 7 张
+  ALL.forEach(c => {
+    const inHand = count(hand, c), inSeen = count(seen, c), left = 4 - inHand - inSeen;
+    const el = tileEl(c, left <= 0 ? 'used' : '');
+    el.insertAdjacentHTML('beforeend', `<span class="cnt">${pickMode==='hand' ? inHand : inSeen}</span>`);
+    el.onclick = () => {
+      if (left <= 0) return toast('这张牌已经用完 4 张了');
+      if (pickMode === 'hand') { if (hand.length >= 14) return toast('手牌最多 14 张'); push(); hand.push(c); }
+      else { push(); seen.push(c); }
+      onChange(); renderPicker();
+    };
+    g.appendChild(el);
+  });
+}
+function onChange() { lastResult = null; document.getElementById('result').style.display = 'none'; save(); renderHand(); }
+
+function toast(msg) {
+  let t = document.getElementById('toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; t.style.cssText = 'position:fixed;top:40%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;padding:8px 14px;border-radius:8px;font-size:14px;z-index:99;pointer-events:none;transition:opacity .3s'; document.body.appendChild(t); }
+  t.textContent = msg; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(() => t.style.opacity = 0, 1600);
+}
+
+// ---------- 分析 ----------
+async function analyze() {
+  if (hand.length % 3 === 0 || hand.length < 2) return toast('请选 13 或 14 张手牌（当前 ' + hand.length + ' 张）');
+  const box = document.getElementById('result'); box.style.display = 'block';
+  const ai = document.getElementById('aiToggle').checked;
+  // 先用本地引擎立即出结果，再等 AI 讲解
+  const local = localAnalyze();
+  lastResult = { analysis: local }; renderHand();
+  box.innerHTML = renderAnalysis(local) + (ai ? '<div class="ai" id="aiBox"><span class="spinner"></span> AI 正在思考打牌思路…</div>' : '');
+  if (!ai) return;
+  const btn = document.getElementById('analyzeBtn'); btn.disabled = true;
+  try {
+    const a = local;
+    let data;
+    if (a.isDraw) {
+      data = a.win ? '程序判定：这手牌已经胡了！' : `当前向听数：${a.shanten}\n候选打法（已按优劣排序）：\n` +
+        a.options.slice(0, 6).map((o, i) => `${i + 1}. 打${tileName(o.discard)}：打后${o.shanten === 0 ? '听牌' : o.shanten + '向听'}，有效进张 ${o.kinds} 种 ${o.total} 张（${o.eff.map(e => tileName(e.tile) + 'x' + e.count).join('、')}）`).join('\n');
+    } else {
+      data = `这是 ${a.count} 张（等摸牌状态）。向听数：${a.shanten}${a.shanten === 0 ? '（已听牌）' : ''}\n有效进张 ${a.total} 张：${a.eff.map(e => tileName(e.tile) + 'x' + e.count).join('、')}`;
+    }
+    const advice = await AI.advise(hand.map(tileName), data);
+    document.getElementById('aiBox').innerHTML = '<div class="muted" style="margin:10px 0 4px">🤖 AI 打牌思路</div>' + escapeHtml(advice);
+  } catch (e) {
+    document.getElementById('aiBox').innerHTML = '⚠️ AI 讲解失败：' + escapeHtml(e.message) + '<br><span class="muted">上方计算结果依然有效。</span>';
+  } finally { btn.disabled = false; }
+}
+function localAnalyze() {
+  const ids = hand.map(order), seenIds = seen.map(order), idCode = i => ALL[i];
+  if (ids.length % 3 === 2) {
+    const r = MJ.analyze(ids, { seen: seenIds });
+    return { isDraw:true, win:r.win, shanten:r.shanten, count:ids.length,
+      options: r.results.map(x => ({ discard:idCode(x.discard), shanten:x.shanten, kinds:x.kinds, total:x.total, eff:x.eff.map(e => ({ tile:idCode(e.tile), count:e.count })) })) };
+  }
+  const w = MJ.waits(ids, { seen: seenIds });
+  return { isDraw:false, shanten:w.shanten, total:w.total, count:ids.length, eff:w.eff.map(e => ({ tile:idCode(e.tile), count:e.count })) };
+}
+const stText = s => s === -1 ? '胡牌' : s === 0 ? '听牌' : s + ' 向听';
+function renderAnalysis(a) {
+  if (!a.isDraw) {
+    return `<div class="head">${a.shanten === 0 ? '已听牌 🎉' : '当前 ' + stText(a.shanten)}</div>
+      <div class="eff">${a.shanten === 0 ? '听' : '有效进张'}（共 ${a.total} 张）：<br>${a.eff.map(e => mini(e.tile) + '×' + e.count).join(' ')}</div>
+      <div class="tip">提示：这是 13 张，摸牌后加成 14 张再点“分析”可以得到出牌建议。</div>`;
+  }
+  if (a.win) return `<div class="head">🀄 恭喜，这手牌<b>已经胡了</b>！</div>`;
+  const best = a.options[0];
+  const rows = a.options.slice(0, 6).map((o, i) => `<tr class="${i===0?'top':''}"><td>${mini(o.discard)}</td><td>${stText(o.shanten)}</td><td><b>${o.total}</b>张<br><span class="muted">${o.kinds}种</span></td>
+      <td class="eff">${o.eff.map(e => mini(e.tile)).join('')}</td></tr>`).join('');
+  return `<div class="head">建议打 <b>${tileName(best.discard)}</b>　<span class="muted">打后${stText(best.shanten)}，进张 ${best.total} 张</span></div>
+    <table><tr><th>打出</th><th>打后</th><th>进张</th><th>有效牌</th></tr>${rows}</table>
+    <div class="muted" style="margin-top:6px">计算结果：当前 ${stText(a.shanten)}；进张数已扣除手牌${seen.length ? '及已出牌' : ''}。红中为癞子。</div>`;
+}
+const escapeHtml = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+// ---------- 拍照识别 ----------
+async function compress(file) {
+  const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = URL.createObjectURL(file); });
+  const max = 1568, k = Math.min(1, max / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.88);
+}
+document.getElementById('photoBtn').onclick = () => document.getElementById('file').click();
+document.getElementById('file').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  const note = document.getElementById('recogNote'), pv = document.getElementById('preview');
+  const data = await compress(f);
+  pv.src = data; pv.style.display = 'block';
+  note.innerHTML = '<div class="tip"><span class="spinner"></span> AI 正在识别牌型…</div>';
+  try {
+    const j = await AI.recognize(data);
+    push(); hand = j.hand.slice(0, 14); onChange();
+    const conf = { high:'高', medium:'中', low:'低' }[j.confidence];
+    note.innerHTML = `<div class="tip">识别到 ${j.hand.length} 张（置信度：${conf}）。${j.note ? escapeHtml(j.note) : ''} 点手牌可删除，“选牌”可补牌，确认无误后点“分析”。</div>`;
+  } catch (err) { note.innerHTML = '<div class="tip">⚠️ 识别失败：' + escapeHtml(err.message || '网络错误') + '，可以手动“选牌”。</div>'; }
+};
+
+// ---------- 其它按钮 ----------
+const sheet = document.getElementById('sheet');
+function openSheet(mode) {
+  pickMode = mode;
+  document.getElementById('sheetTitle').textContent = mode === 'hand' ? '选择牌子（点击加入手牌）' : '记录已打出/他人碰杠的牌';
+  document.querySelectorAll('#sheetTabs button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  document.getElementById('sheetTabs').style.display = 'flex';
+  renderPicker(); sheet.classList.add('show');
+}
+document.querySelectorAll('#sheetTabs button').forEach(b => b.onclick = () => openSheet(b.dataset.mode));
+document.getElementById('pickBtn').onclick = () => openSheet('hand');
+document.getElementById('seenBtn').onclick = () => openSheet('seen');
+document.getElementById('sheetClose').onclick = () => sheet.classList.remove('show');
+sheet.onclick = e => { if (e.target === sheet) sheet.classList.remove('show'); };
+document.getElementById('analyzeBtn').onclick = analyze;
+document.getElementById('clearBtn').onclick = () => { if (!hand.length && !seen.length) return; push(); hand = []; seen = []; document.getElementById('preview').style.display='none'; document.getElementById('recogNote').innerHTML=''; onChange(); };
+document.getElementById('undoBtn').onclick = () => { const h = history.pop(); if (!h) return toast('没有可撤回的操作'); ({ hand, seen } = JSON.parse(h)); onChange(); };
+document.getElementById('sortBtn').onclick = () => { push(); hand.sort((a, b) => order(a) - order(b)); onChange(); };
+document.getElementById('randBtn').onclick = () => {
+  const wall = []; ALL.forEach(c => { for (let i = 0; i < 4; i++) wall.push(c); });
+  for (let i = wall.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [wall[i], wall[j]] = [wall[j], wall[i]]; }
+  push(); hand = wall.slice(0, 14).sort((a, b) => order(a) - order(b)); seen = []; onChange();
+};
+
+try { const s = JSON.parse(localStorage.getItem('hzmj')); if (s) { hand = s.hand || []; seen = s.seen || []; } } catch {}
+renderHand();
+
+// ---------- 设置 ----------
+const settings = document.getElementById('settings');
+function fillCfg() { const c = AI.getCfg(); document.getElementById('cfgKey').value = c.key; document.getElementById('cfgBase').value = c.base; document.getElementById('cfgAuth').value = c.auth; document.getElementById('cfgModel').value = c.model; }
+document.getElementById('gearBtn').onclick = () => { fillCfg(); document.getElementById('cfgMsg').textContent = ''; settings.classList.add('show'); };
+document.getElementById('cfgSave').onclick = () => {
+  AI.setCfg({ key: document.getElementById('cfgKey').value.trim(), base: document.getElementById('cfgBase').value.trim() || 'https://api.anthropic.com', auth: document.getElementById('cfgAuth').value, model: document.getElementById('cfgModel').value.trim() || 'claude-opus-5-5' });
+  toast('已保存'); settings.classList.remove('show');
+};
+document.getElementById('cfgTest').onclick = async () => {
+  const msg = document.getElementById('cfgMsg'); msg.textContent = '测试中…';
+  AI.setCfg({ key: document.getElementById('cfgKey').value.trim(), base: document.getElementById('cfgBase').value.trim() || 'https://api.anthropic.com', auth: document.getElementById('cfgAuth').value, model: document.getElementById('cfgModel').value.trim() || 'claude-opus-5-5' });
+  try { await AI.test(); msg.textContent = '✅ 连接成功'; } catch (e) { msg.textContent = '⚠️ ' + e.message; }
+};
+settings.onclick = e => { if (e.target === settings) settings.classList.remove('show'); };
+if (!AI.getCfg().key) setTimeout(() => document.getElementById('gearBtn').click(), 400);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
