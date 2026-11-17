@@ -60,10 +60,10 @@
     }
     return dp[groups + ',1'];
   }
-  // 向听数（-1 表示胡）。适用于 3n+1 或 3n+2 张
+  // 向听数（-1 表示胡）。适用于 3n+1（等摸牌）或 3n+2（等出牌）张
   function shantenStd(counts) {
     const n = counts.reduce((a, b) => a + b, 0), J = counts[HZ];
-    const g = Math.floor(n / 3);          // 面子数（3n+1 / 3n+2 均为 n）
+    const g = Math.ceil(n / 3) - 1;       // 3n+1 与 3n+2 张都要凑 n 个面子 + 1 将
     return (3 * g + 2) - maxUsed(counts, g) - J - 1;
   }
   function shantenChiitoi(counts) {

@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#2f7cf6">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<title>拆搭子练习 · 红中麻将</title>
+<style>
+  :root { --bg:#eef2f7; --card:#fff; --green:#2bb35a; --blue:#2f7cf6; --red:#d7262b; --yellow:#e8a317; --ink:#222; --muted:#888; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:linear-gradient(180deg,#2563d8,#4a8cf7); color:#fff; padding:calc(12px + env(safe-area-inset-top)) 14px 12px; display:flex; align-items:center; gap:10px; }
+  header a { color:#fff; text-decoration:none; font-size:26px; line-height:1; padding:0 6px 0 0; }
+  header h1 { margin:0; font-size:19px; letter-spacing:1px; }
+  header p { margin:2px 0 0; font-size:12px; opacity:.85; }
+  main { max-width:560px; margin:0 auto; padding:10px 10px 110px; }
+  .panel { background:var(--card); border-radius:12px; padding:10px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:4px 0; }
+  .chips .lab { font-size:12px; color:var(--muted); width:34px; }
+  .chips button { border:1px solid #d5dbe5; background:#fff; border-radius:14px; padding:5px 11px; font-size:13px; color:#333; }
+  .chips button.on { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); text-align:center; }
+  .stats b { display:block; font-size:19px; }
+  .stats span { font-size:11px; color:var(--muted); }
+  .q-title { text-align:center; font-size:15px; margin:2px 0 10px; }
+  .q-title b { color:var(--blue); }
+  .grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+  .tile { position:relative; aspect-ratio:3/4; border-radius:6px; background:linear-gradient(180deg,#fff,#f4f4f0); border:1px solid #d9d9d2;
+          border-top:3px solid #3aa55d; box-shadow:0 2px 0 #cfcfc6; display:flex; flex-direction:column; align-items:center; justify-content:center;
+          font-weight:bold; user-select:none; cursor:pointer; transition:transform .1s; }
+  .tile .n { font-size:clamp(14px,4.6vw,22px); line-height:1.05; }
+  .tile .s { font-size:clamp(11px,3.4vw,16px); line-height:1.1; }
+  .tile.m .n { color:#111; } .tile.m .s { color:var(--red); }
+  .tile.s .n, .tile.s .s { color:#1d8a45; }
+  .tile.p .n, .tile.p .s { color:#1b4fa0; }
+  .tile.hz .n { color:var(--red); font-size:clamp(22px,7vw,32px); }
+  .tile.sel { transform:translateY(-10px); box-shadow:0 6px 10px rgba(47,124,246,.35); border-color:var(--blue); }
+  .tile.ok { outline:3px solid var(--green); outline-offset:1px; }
+  .tile.bad { outline:3px solid var(--red); outline-offset:1px; }
+  .tile.mid { outline:3px solid var(--yellow); outline-offset:1px; }
+  .tile .badge { position:absolute; top:-9px; right:-6px; color:#fff; font-size:10px; border-radius:8px; padding:1px 5px; font-weight:normal; }
+  .badge.g { background:var(--green); } .badge.r { background:var(--red); } .badge.y { background:var(--yellow); }
+  .mini { display:inline-flex; width:22px; height:29px; margin:1px; vertical-align:middle; border-top-width:2px; box-shadow:0 1px 0 #cfcfc6; cursor:default; }
+  .mini .n { font-size:11px; } .mini .s { font-size:9px; } .mini.hz .n { font-size:14px; }
+  .verdict { font-size:17px; font-weight:bold; margin:2px 0 8px; }
+  .lines div { font-size:13.5px; line-height:1.65; margin:3px 0; }
+  .tip { font-size:13px; color:#7a4b12; background:#fff4e5; border-radius:8px; padding:8px 10px; margin-top:8px; line-height:1.6; }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+  th, td { padding:5px 3px; border-bottom:1px solid #f0f0f0; text-align:left; vertical-align:middle; }
+  th { color:var(--muted); font-weight:normal; }
+  tr.best td { background:#effaf2; } tr.mine td { background:#fff3f3; } tr.best.mine td { background:#effaf2; }
+  .ai { white-space:pre-wrap; line-height:1.7; font-size:14px; margin-top:8px; }
+  .muted { color:var(--muted); font-size:12px; }
+  .bar { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid #e6e9ef; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); display:flex; gap:10px; justify-content:center; }
+  .bar button { border:none; border-radius:22px; padding:12px 0; font-size:15px; flex:1; max-width:200px; }
+  .bar .main { background:var(--blue); color:#fff; } .bar .main:disabled { background:#9dbcf3; }
+  .bar .sub { background:#eef1f5; color:#333; }
+  .spinner { display:inline-block; width:14px; height:14px; border:2px solid #ccc; border-top-color:var(--blue); border-radius:50%; animation:sp .8s linear infinite; vertical-align:-2px; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  .small-btn { border:none; background:#eef1f5; border-radius:14px; padding:6px 12px; font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="index.html" aria-label="返回">‹</a>
+  <div>
+    <h1>拆搭子练习</h1>
+    <p>选出最该打的一张 · 答案由程序精确计算</p>
+  </div>
+</header>
+<main>
+  <div class="panel">
+    <div class="chips" id="levels"><span class="lab">难度</span></div>
+    <div class="chips" id="themes"><span class="lab">专题</span></div>
+    <div class="chips"><span class="lab">模式</span>
+      <button id="modeNew" class="on">新题</button>
+      <button id="modeWrong">错题重练（<span id="wrongCnt">0</span>）</button>
+    </div>
+  </div>
+
+  <div class="panel stats" id="stats"></div>
+
+  <div class="panel">
+    <div class="q-title" id="qTitle"><span class="spinner"></span> 出题中…</div>
+    <div class="grid" id="hand"></div>
+    <div class="muted" id="qHint" style="text-align:center;margin-top:10px">点一张牌选中，再点“就打这张”</div>
+  </div>
+
+  <div class="panel" id="answer" style="display:none"></div>
+</main>
+
+<div class="bar">
+  <button class="sub" id="skipBtn">换一题</button>
+  <button class="main" id="goBtn" disabled>就打这张</button>
+</div>
+
+<script src="mahjong.js"></script>
+<script src="practice.js"></script>
+<script src="ai.js"></script>
+<script>
+const CN = ['一','二','三','四','五','六','七','八','九'];
+const SUIT = ['m','s','p'], SUIT_CN = ['万','条','筒'];
+const $ = id => document.getElementById(id);
+const nm = MJ.name;
+function tileHTML(t, cls = '', badge = '') {
+  const b = badge ? `<span class="badge ${badge[0]}">${badge.slice(1)}</span>` : '';
+  if (t === 27) return `<div class="tile hz ${cls}" data-t="27"><div class="n">中</div>${b}</div>`;
+  const s = Math.floor(t / 9);
+  return `<div class="tile ${SUIT[s]} ${cls}" data-t="${t}"><div class="n">${CN[t % 9]}</div><div class="s">${SUIT_CN[s]}</div>${b}</div>`;
+}
+const mini = t => tileHTML(t, 'mini');
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+// ---------- 状态 ----------
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem('hzmj_px_' + k)) ?? d; } catch { return d; } },
+  set(k, v) { localStorage.setItem('hzmj_px_' + k, JSON.stringify(v)); },
+};
+let level = store.get('level', 'easy'), theme = store.get('theme', 'mix'), mode = 'new';
+let stats = store.get('stats', { n: 0, right: 0, close: 0, streak: 0, best: 0 });
+let wrongBook = store.get('wrong', []); // [{hand, level, theme}]
+let q = null, selIdx = -1, answered = false, wrongPtr = 0;
+
+// ---------- 后台出题 ----------
+let worker = null, reqId = 0, pending = new Map(), prefetch = null;
+try { worker = new Worker('practice-worker.js'); worker.onmessage = e => { const cb = pending.get(e.data.id); pending.delete(e.data.id); cb && cb(e.data); }; } catch { worker = null; }
+function genAsync(lv, th) {
+  return new Promise(resolve => {
+    if (worker) { const id = ++reqId; pending.set(id, resolve); worker.postMessage({ id, level: lv, theme: th }); }
+    else setTimeout(() => { let q = Practice.generate(lv, th, 1200), relaxed = false; if (!q) { q = Practice.generate(lv, 'mix', 1200); relaxed = true; } resolve({ q, relaxed }); }, 30);
+  });
+}
+function startPrefetch(lv = level, th = theme) { prefetch = { key: lv + '|' + th, p: genAsync(lv, th) }; }
+async function takeQuestion(lv, th) {
+  const key = lv + '|' + th;
+  const p = prefetch && prefetch.key === key ? prefetch.p : genAsync(lv, th);
+  prefetch = null;
+  const r = await p;
+  if (lv === level && th === theme) startPrefetch(lv, th); // 做题时后台准备下一题
+  return r;
+}
+
+// ---------- 渲染 ----------
+function renderChips() {
+  $('levels').innerHTML = '<span class="lab">难度</span>' + Object.entries(Practice.LEVELS).map(([k, v]) => `<button data-k="${k}" class="${k === level ? 'on' : ''}">${v.label}</button>`).join('');
+  $('themes').innerHTML = '<span class="lab">专题</span>' + Object.entries(Practice.THEMES).map(([k, v]) => `<button data-k="${k}" class="${k === theme ? 'on' : ''}">${v.label}</button>`).join('');
+  $('levels').querySelectorAll('button').forEach(b => b.onclick = () => { level = b.dataset.k; store.set('level', level); renderChips(); next(); });
+  $('themes').querySelectorAll('button').forEach(b => b.onclick = () => { theme = b.dataset.k; store.set('theme', theme); renderChips(); next(); });
+  $('modeNew').classList.toggle('on', mode === 'new');
+  $('modeWrong').classList.toggle('on', mode === 'wrong');
+  $('wrongCnt').textContent = wrongBook.length;
+}
+function renderStats() {
+  const acc = stats.n ? Math.round(stats.right / stats.n * 100) : 0;
+  $('stats').innerHTML = `<div><b>${stats.n}</b><span>已做</span></div><div><b>${acc}%</b><span>最优率</span></div><div><b>${stats.streak}</b><span>连对</span></div><div><b>${stats.best}</b><span>最高连对</span></div>`;
+}
+function renderHand() {
+  const g = $('hand');
+  const correct = answered ? q.correctSet : [];
+  let markedBest = new Set(), mineDone = false;
+  g.innerHTML = q.hand.map((t, i) => {
+    let cls = '', badge = '';
+    if (!answered && i === selIdx) cls = 'sel';
+    if (answered) {
+      if (i === selIdx) { const v = lastGrade.verdict; cls = v === 'right' ? 'ok' : v === 'close' ? 'mid' : 'bad'; badge = v === 'right' ? 'g✓' : v === 'close' ? 'y你' : 'r你'; mineDone = true; }
+      else if (correct.includes(t) && !markedBest.has(t) && !(q.hand[selIdx] === t)) { cls = 'ok'; badge = 'g最优'; markedBest.add(t); }
+    }
+    return tileHTML(t, cls, badge);
+  }).join('');
+  if (!answered) g.querySelectorAll('.tile').forEach((el, i) => el.onclick = () => { selIdx = selIdx === i ? -1 : i; $('goBtn').disabled = selIdx < 0; renderHand(); });
+}
+const stText = s => s === 0 ? '听牌' : s + '向听';
+function showQuestion(newQ, note = '') {
+  q = newQ; selIdx = -1; answered = false; lastGrade = null;
+  $('answer').style.display = 'none';
+  $('goBtn').disabled = true; $('goBtn').textContent = '就打这张';
+  const lvl = Practice.LEVELS[q.level].label, th = Practice.THEMES[q.theme].label;
+  $('qTitle').innerHTML = `${mode === 'wrong' ? '📕 错题 · ' : ''}${lvl}·${th}　当前 <b>${stText(q.result.shanten)}</b>，打哪一张？${note ? `<div class="muted">${esc(note)}</div>` : ''}`;
+  $('qHint').style.display = '';
+  renderHand();
+}
+
+// ---------- 流程 ----------
+let lastGrade = null, token = 0;
+async function next() {
+  const my = ++token; // 只采用最后一次请求的结果，快速切换难度/专题时旧结果丢弃
+  renderChips();
+  $('qTitle').innerHTML = '<span class="spinner"></span> 出题中…'; $('hand').innerHTML = ''; $('answer').style.display = 'none'; $('goBtn').disabled = true;
+  if (mode === 'wrong') {
+    if (!wrongBook.length) { mode = 'new'; renderChips(); alert('错题本是空的，先去做新题吧'); }
+    else { wrongPtr %= wrongBook.length; const w = wrongBook[wrongPtr]; showQuestion(Practice.fromHand(w.hand, w.level, w.theme)); return; }
+  }
+  const lv = level, th = theme;
+  const { q: nq, relaxed } = await takeQuestion(lv, th);
+  if (my !== token) return;
+  showQuestion(nq, relaxed ? '这个专题这次没凑出合适的题，先做一道综合题' : '');
+}
+
+function submit() {
+  if (answered || selIdx < 0) return;
+  answered = true;
+  const t = q.hand[selIdx];
+  const g = lastGrade = Practice.grade(q, t);
+  // 统计 & 错题本
+  stats.n++;
+  if (g.verdict === 'right') { stats.right++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
+  else { if (g.verdict === 'close') stats.close++; stats.streak = 0; }
+  store.set('stats', stats);
+  const key = q.hand.join(',');
+  const idx = wrongBook.findIndex(w => w.hand.join(',') === key);
+  if (g.verdict === 'right' && idx >= 0) { wrongBook.splice(idx, 1); }
+  else if (g.verdict !== 'right' && idx < 0) { wrongBook.unshift({ hand: q.hand, level: q.level, theme: q.theme }); wrongBook = wrongBook.slice(0, 100); }
+  else if (mode === 'wrong') wrongPtr++;
+  store.set('wrong', wrongBook);
+  renderStats(); renderChips(); renderHand();
+
+  const lines = Practice.explain(q, g);
+  const title = { right: '✅ 最优解！', close: '🟡 差一点', wrong: '❌ 不是最优' }[g.verdict];
+  const color = { right: 'var(--green)', close: 'var(--yellow)', wrong: 'var(--red)' }[g.verdict];
+  // 选项表：前 5 + 自己的选择
+  const sameShown = q.result.results.slice(0, 5);
+  if (!sameShown.some(x => x.discard === t)) sameShown.push(q.result.results.find(x => x.discard === t));
+  const rows = sameShown.map(o => `<tr class="${q.correctSet.includes(o.discard) ? 'best' : ''} ${o.discard === t ? 'mine' : ''}"><td>${mini(o.discard)}${o.discard === t ? ' <span class="muted">你</span>' : ''}</td><td>${stText(o.shanten)}</td><td><b>${o.total}</b>张 <span class="muted">${o.kinds}种</span></td></tr>`).join('');
+  const cfg = AI.getCfg();
+  $('answer').innerHTML = `<div class="verdict" style="color:${color}">${title}</div>
+    <div class="lines">${lines.map(l => `<div>${esc(l)}</div>`).join('')}</div>
+    <table><tr><th>打出</th><th>打后</th><th>有效进张</th></tr>${rows}</table>
+    <div class="tip">📖 ${esc(Practice.THEMES[q.theme].label)}要点：${esc(Practice.THEMES[q.theme].tip)}</div>
+    ${cfg.key ? '<button class="small-btn" id="aiBtn">🤖 让 AI 讲讲这题</button><div class="ai" id="aiBox"></div>' : ''}`;
+  $('answer').style.display = 'block';
+  $('qHint').style.display = 'none';
+  $('goBtn').disabled = false; $('goBtn').textContent = '下一题';
+  if (cfg.key) $('aiBtn').onclick = askAI;
+  $('answer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function askAI() {
+  const box = $('aiBox'); $('aiBtn').disabled = true;
+  box.innerHTML = '<span class="spinner"></span> AI 思考中…';
+  const opts = q.result.results.slice(0, 6).map((o, i) => `${i + 1}. 打${nm(o.discard)}：打后${o.shanten === 0 ? '听牌' : o.shanten + '向听'}，有效进张 ${o.kinds} 种 ${o.total} 张（${o.eff.map(e => nm(e.tile) + 'x' + e.count).join('、')}）`).join('\n');
+  const data = `这是一道拆搭子练习题。当前向听数：${q.result.shanten}\n我选择打：${nm(q.hand[selIdx])}\n候选打法（程序计算，已按优劣排序）：\n${opts}\n请重点讲：为什么最优解拆的是那张，我选的哪里不好（如果我选对了就讲清楚道理），以及这类牌型的通用拆搭子原则。`;
+  try { box.textContent = await AI.advise(q.hand.map(nm), data); }
+  catch (e) { box.textContent = '⚠️ ' + e.message; $('aiBtn').disabled = false; }
+}
+
+$('goBtn').onclick = () => answered ? next() : submit();
+$('skipBtn').onclick = () => { if (mode === 'wrong' && wrongBook.length) wrongPtr++; next(); };
+$('modeNew').onclick = () => { mode = 'new'; next(); };
+$('modeWrong').onclick = () => { mode = 'wrong'; wrongPtr = 0; next(); };
+
+renderChips(); renderStats(); startPrefetch(); next();
+</script>
+</body>
+</html>
