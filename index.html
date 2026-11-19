@@ -129,13 +129,20 @@
   <div class="inner">
     <h3>⚙️ AI 设置（只保存在本机）</h3>
     <div class="form">
-      <label>API 密钥<input id="cfgKey" type="password" placeholder="sk-ant-... 或中转站给的密钥" autocomplete="off"></label>
+      <label>接口类型
+        <select id="cfgProvider">
+          <option value="anthropic">Claude 格式（/v1/messages）</option>
+          <option value="openai">OpenAI 兼容格式（/v1/chat/completions）</option>
+        </select>
+      </label>
+      <label>API 密钥<input id="cfgKey" type="password" placeholder="sk-..." autocomplete="off"></label>
       <label>接口地址<input id="cfgBase" type="url" placeholder="https://api.anthropic.com"></label>
-      <div class="muted">国内网络一般连不上官方地址，请填你能用的中转地址（只填域名，不带 /v1/messages）。</div>
-      <label>认证方式
+      <div class="muted" id="cfgBaseHint">国内网络一般连不上官方地址，请填你能用的中转地址（只填域名，不带 /v1/messages）。</div>
+      <label id="cfgAuthRow">认证方式
         <select id="cfgAuth"><option value="x-api-key">x-api-key（官方密钥）</option><option value="bearer">Authorization: Bearer（多数中转站）</option></select>
       </label>
       <label>模型<input id="cfgModel" placeholder="claude-opus-5-5"></label>
+      <div class="muted" id="cfgModelHint"></div>
     </div>
     <div class="row-actions" style="justify-content:center">
       <button class="btn" id="cfgTest">测试连接</button>
@@ -310,16 +317,41 @@ renderHand();
 
 // ---------- 设置 ----------
 const settings = document.getElementById('settings');
-function fillCfg() { const c = AI.getCfg(); document.getElementById('cfgKey').value = c.key; document.getElementById('cfgBase').value = c.base; document.getElementById('cfgAuth').value = c.auth; document.getElementById('cfgModel').value = c.model; }
-document.getElementById('gearBtn').onclick = () => { fillCfg(); document.getElementById('cfgMsg').textContent = ''; settings.classList.add('show'); };
-document.getElementById('cfgSave').onclick = () => {
-  AI.setCfg({ key: document.getElementById('cfgKey').value.trim(), base: document.getElementById('cfgBase').value.trim() || 'https://api.anthropic.com', auth: document.getElementById('cfgAuth').value, model: document.getElementById('cfgModel').value.trim() || 'claude-opus-5-5' });
-  toast('已保存'); settings.classList.remove('show');
+const $c = id => document.getElementById(id);
+const HINTS = {
+  anthropic: { base: '国内网络一般连不上官方地址，请填你能用的中转地址（只填域名，不带 /v1/messages）。',
+               model: '' },
+  openai:    { base: '填到 /v1 为止即可，例如：https://api.deepseek.com/v1 、https://dashscope.aliyuncs.com/compatible-mode/v1 、中转站地址/v1。',
+               model: '拍照识别需要支持看图的模型（如 gpt-4o、qwen-vl-max）；只用讲解功能可以用 deepseek-chat 等纯文字模型。' },
 };
-document.getElementById('cfgTest').onclick = async () => {
-  const msg = document.getElementById('cfgMsg'); msg.textContent = '测试中…';
-  AI.setCfg({ key: document.getElementById('cfgKey').value.trim(), base: document.getElementById('cfgBase').value.trim() || 'https://api.anthropic.com', auth: document.getElementById('cfgAuth').value, model: document.getElementById('cfgModel').value.trim() || 'claude-opus-5-5' });
-  try { await AI.test(); msg.textContent = '✅ 连接成功'; } catch (e) { msg.textContent = '⚠️ ' + e.message; }
+function applyProviderUI(p, resetDefaults) {
+  const d = AI.DEFAULTS[p];
+  $c('cfgAuthRow').style.display = p === 'anthropic' ? '' : 'none';
+  $c('cfgBase').placeholder = d.base; $c('cfgModel').placeholder = d.model;
+  $c('cfgBaseHint').textContent = HINTS[p].base; $c('cfgModelHint').textContent = HINTS[p].model;
+  if (resetDefaults) {
+    // 切换类型时，若地址/模型还是另一种的默认值，就换成这种的默认值
+    const other = AI.DEFAULTS[p === 'openai' ? 'anthropic' : 'openai'];
+    if (!$c('cfgBase').value || $c('cfgBase').value === other.base) $c('cfgBase').value = d.base;
+    if (!$c('cfgModel').value || $c('cfgModel').value === other.model) $c('cfgModel').value = d.model;
+  }
+}
+function fillCfg() {
+  const c = AI.getCfg();
+  $c('cfgProvider').value = c.provider; $c('cfgKey').value = c.key; $c('cfgBase').value = c.base; $c('cfgAuth').value = c.auth; $c('cfgModel').value = c.model;
+  applyProviderUI(c.provider, false);
+}
+function readCfg() {
+  const p = $c('cfgProvider').value, d = AI.DEFAULTS[p];
+  return { provider: p, key: $c('cfgKey').value.trim(), base: $c('cfgBase').value.trim() || d.base, auth: $c('cfgAuth').value, model: $c('cfgModel').value.trim() || d.model };
+}
+$c('cfgProvider').onchange = () => applyProviderUI($c('cfgProvider').value, true);
+$c('gearBtn').onclick = () => { fillCfg(); $c('cfgMsg').textContent = ''; settings.classList.add('show'); };
+$c('cfgSave').onclick = () => { AI.setCfg(readCfg()); toast('已保存'); settings.classList.remove('show'); };
+$c('cfgTest').onclick = async () => {
+  const msg = $c('cfgMsg'); msg.textContent = '测试中…';
+  AI.setCfg(readCfg());
+  try { const r = await AI.test(); msg.textContent = '✅ 连接成功：' + String(r).trim().slice(0, 30); } catch (e) { msg.textContent = '⚠️ ' + e.message; }
 };
 settings.onclick = e => { if (e.target === settings) settings.classList.remove('show'); };
 if (!AI.getCfg().key) setTimeout(() => document.getElementById('gearBtn').click(), 400);

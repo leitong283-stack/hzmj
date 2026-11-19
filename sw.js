@@ -1,6 +1,6 @@
 // 离线缓存：出牌计算和练习完全本地，没网也能用；AI 功能需要联网。
 // 策略：先走网络（保证更新后立刻生效），断网时用缓存。
-const CACHE = 'hzmj-v2';
+const CACHE = 'hzmj-v3';
 const FILES = ['./', 'index.html', 'practice.html', 'mahjong.js', 'practice.js', 'practice-worker.js', 'ai.js',
                'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', e => {
